@@ -2,12 +2,10 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
-const knowledgeBase = require('./knowledge-base.json'); // Importar a base de conhecimento
+const knowledgeBase = require('./knowledge-base.json');
 
-// Carregar variáveis de ambiente
 dotenv.config();
 
-// Inicializar o Firebase
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -18,7 +16,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Função para encontrar uma resposta na base de conhecimento
+// Função para buscar respostas na base de conhecimento
 function findAnswerInKnowledgeBase(message) {
     const lowerCaseMessage = message.toLowerCase().trim();
     const fact = knowledgeBase.facts.find(f => lowerCaseMessage.includes(f.question.toLowerCase()));
@@ -31,20 +29,43 @@ function findAnswerInKnowledgeBase(message) {
     return null;
 }
 
-// Rota para receber mensagens do Twilio
+// Função para buscar notícias recentes usando a NewsAPI
+async function fetchRecentNews(query) {
+    try {
+        const response = await axios.get('https://newsapi.org/v2/everything', {
+            params: {
+                q: query, // Ex.: "Israel"
+                apiKey: process.env.NEWSAPI_KEY, // Chave API do Heroku
+                language: 'en', // Ajuste conforme necessário (ex.: 'pt' para português)
+                sortBy: 'publishedAt', // Ordenar por data de publicação
+                pageSize: 1, // Pegar apenas a notícia mais recente
+            },
+        });
+        const article = response.data.articles[0];
+        if (article) {
+            return `Notícia recente: ${article.title}. Publicado em ${article.publishedAt}. [Fonte: ${article.source.name}]`;
+        }
+        return "Não encontrei notícias recentes sobre esse tópico.";
+    } catch (error) {
+        console.error('Erro ao buscar notícias:', error.message);
+        return "Desculpe, não consegui buscar notícias recentes.";
+    }
+}
+
+// Rota para o webhook do Twilio (WhatsApp)
 app.post('/webhook', async (req, res) => {
     const from = req.body.From; // Número do usuário
     const message = req.body.Body; // Mensagem enviada pelo usuário
 
-    // Buscar histórico de conversa no Firebase
+    // Acessar o histórico de conversa no Firebase
     const userRef = db.collection('conversations').doc(from);
     const userDoc = await userRef.get();
     let conversationHistory = userDoc.exists ? userDoc.data().messages : [];
 
     // Adicionar a mensagem do usuário ao histórico
-    conversationHistory.push({ role: 'user', content: message });
+    conversationHistory.push({ role: 'user', content: message, timestamp: Date.now() });
 
-    // Limitar o histórico a 30 dias (aproximadamente)
+    // Limpar mensagens com mais de 30 dias
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     conversationHistory = conversationHistory.filter(msg => {
         const msgTimestamp = msg.timestamp || Date.now();
@@ -64,13 +85,28 @@ app.post('/webhook', async (req, res) => {
         return res.send(welcomeMessage);
     }
 
-    // Verificar se a mensagem está na base de conhecimento
+    // Verificar se a mensagem é sobre notícias recentes
+    const lowerCaseMessage = message.toLowerCase().trim();
+    if (lowerCaseMessage.includes("últimas notícias") || lowerCaseMessage.includes("notícias recentes")) {
+        const newsQuery = "Israel"; // Ajuste conforme necessário
+        const newsReply = await fetchRecentNews(newsQuery);
+        conversationHistory.push({ role: 'assistant', content: newsReply, timestamp: Date.now() });
+
+        // Salvar o histórico atualizado no Firebase
+        await userRef.set({ messages: conversationHistory });
+
+        // Responder ao Twilio
+        res.set('Content-Type', 'text/plain');
+        return res.send(newsReply);
+    }
+
+    // Verificar a base de conhecimento
     const knowledgeAnswer = findAnswerInKnowledgeBase(message);
     if (knowledgeAnswer) {
         const reply = `${knowledgeAnswer.answer} [Fonte: ${knowledgeAnswer.source}]`;
         conversationHistory.push({ role: 'assistant', content: reply, timestamp: Date.now() });
 
-        // Salvar no Firebase
+        // Salvar o histórico atualizado no Firebase
         await userRef.set({ messages: conversationHistory });
 
         // Responder ao Twilio
