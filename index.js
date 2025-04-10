@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
+const knowledgeBase = require('./knowledge-base.json'); // Importar a base de conhecimento
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -16,6 +17,19 @@ const db = admin.firestore();
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Função para encontrar uma resposta na base de conhecimento
+function findAnswerInKnowledgeBase(message) {
+    const lowerCaseMessage = message.toLowerCase().trim();
+    const fact = knowledgeBase.facts.find(f => lowerCaseMessage.includes(f.question.toLowerCase()));
+    if (fact) {
+        return {
+            answer: fact.answer,
+            source: fact.source
+        };
+    }
+    return null;
+}
 
 // Rota para receber mensagens do Twilio
 app.post('/webhook', async (req, res) => {
@@ -50,7 +64,21 @@ app.post('/webhook', async (req, res) => {
         return res.send(welcomeMessage);
     }
 
-    // Chamar o ChatGPT para gerar uma resposta
+    // Verificar se a mensagem está na base de conhecimento
+    const knowledgeAnswer = findAnswerInKnowledgeBase(message);
+    if (knowledgeAnswer) {
+        const reply = `${knowledgeAnswer.answer} [Fonte: ${knowledgeAnswer.source}]`;
+        conversationHistory.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+
+        // Salvar no Firebase
+        await userRef.set({ messages: conversationHistory });
+
+        // Responder ao Twilio
+        res.set('Content-Type', 'text/plain');
+        return res.send(reply);
+    }
+
+    // Se não encontrar na base de conhecimento, usar o ChatGPT
     try {
         const response = await axios.post(
             'https://api.openai.com/v1/chat/completions',
