@@ -1,0 +1,64 @@
+{
+    "facts": [
+        {
+            "question": "qual é a capital de israel",
+            "answer": "A capital de Israel é Jerusalém.",
+            "source": "Jewish Virtual Library – https://www.jewishvirtuallibrary.org"
+        },
+        {
+            "question": "quais são os feriados em israel",
+            "answer": "Os principais feriados em Israel incluem Yom Kippur, Rosh Hashaná, Pessach, Sucot e Hanukkah.",
+            "source": "Israel Ministry of Foreign Affairs – https://mfa.gov.il"
+        },
+        {
+            "question": "qual é a língua oficial de israel",
+            "answer": "As línguas oficiais de Israel são hebraico e árabe.",
+            "source": "The Times of Israel – https://www.timesofisrael.com"
+        },
+        {
+            "question": "qual é a moeda de israel",
+            "answer": "A moeda de Israel é o shekel israelense (ILS).",
+            "source": "Israel Hayom – https://www.israelhayom.com"
+        },
+        {
+            "question": "quem é o primeiro-ministro de israel",
+            "answer": "O primeiro-ministro de Israel, em abril de 2025, é Benjamin Netanyahu, que voltou ao poder em 2022.",
+            "source": "The Jerusalem Post – https://www.jpost.com"
+        },
+        {
+            "question": "qual é a população de israel",
+            "answer": "A população de Israel é de aproximadamente 9,3 milhões de pessoas (em 2025).",
+            "source": "Jewish Virtual Library – https://www.jewishvirtuallibrary.org"
+        },
+        {
+            "question": "o que é o sionismo",
+            "answer": "O sionismo é um movimento político e cultural que apoia o estabelecimento e a manutenção de um estado nacional judaico em Israel.",
+            "source": "Zionism Today – Revista sobre o movimento sionista"
+        },
+        {
+            "question": "quais são os desafios históricos de israel",
+            "answer": "Israel enfrentou desafios como guerras, imigração em massa e a busca por legitimidade internacional.",
+            "source": "My Promised Land: The Triumph and Tragedy of Israel – Ari Shavit"
+        },
+        {
+            "question": "qual é o papel de israel na democracia global",
+            "answer": "Israel é frequentemente citado como a única democracia no Oriente Médio, promovendo valores democráticos em uma região turbulenta.",
+            "source": "The Role of Israel in Global Democracy – Jewish News"
+        },
+        {
+            "question": "o que é a aipac",
+            "answer": "A AIPAC (American Israel Public Affairs Committee) é uma organização que promove políticas pró-Israel nos Estados Unidos.",
+            "source": "AIPAC – https://www.aipac.org"
+        },
+        {
+            "question": "quais são as inovações tecnológicas de israel",
+            "answer": "Israel é líder em tecnologia, com inovações em áreas como cibersegurança, agricultura e saúde, sendo conhecido como a 'Nação Start-Up'.",
+            "source": "Israel Innovation Authority – https://innovationisrael.org.il"
+        },
+        {
+            "question": "quem foi david ben-gurion",
+            "answer": "David Ben-Gurion foi o primeiro primeiro-ministro de Israel e um dos principais fundadores do estado, desempenhando um papel crucial na Declaração de Independência de 1948.",
+            "source": "Jewish Virtual Library – https://www.jewishvirtuallibrary.org"
+        }
+    ]
+}
