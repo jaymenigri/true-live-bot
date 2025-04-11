@@ -17,14 +17,14 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Base de conhecimento local
+// Base de conhecimento
 function findAnswerInKnowledgeBase(message) {
   const lower = message.toLowerCase().trim();
   const fact = knowledgeBase.facts.find(f => lower.includes(f.question.toLowerCase()));
   return fact ? { answer: fact.answer, source: fact.source } : null;
 }
 
-// Consulta à NewsAPI
+// NewsAPI
 async function fetchRecentNews(query) {
   try {
     const response = await axios.get('https://newsapi.org/v2/everything', {
@@ -50,7 +50,7 @@ async function fetchRecentNews(query) {
   }
 }
 
-// ✅ Webhook principal
+// Webhook do WhatsApp via Twilio
 app.post('/webhook', async (req, res) => {
   console.log("📨 Webhook acionado! Mensagem recebida:", req.body);
 
