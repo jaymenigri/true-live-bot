@@ -3,7 +3,7 @@ const langs = require('langs');
 
 function detectLanguage(text) {
     const langCode = franc(text);
-    if (langCode === 'und') return 'en'; // fallback para inglês
+    if (langCode === 'und') return 'en';
     const language = langs.where("3", langCode);
     return language ? language['1'] : 'en';
 }
