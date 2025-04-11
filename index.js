@@ -85,20 +85,25 @@ app.post('/webhook', async (req, res) => {
         return res.send(welcomeMessage);
     }
 
-    // Verificar se a mensagem é sobre notícias recentes
-    const lowerCaseMessage = message.toLowerCase().trim();
-    if (lowerCaseMessage.includes("últimas notícias") || lowerCaseMessage.includes("notícias recentes")) {
-        const newsQuery = "Israel"; // Ajuste conforme necessário
-        const newsReply = await fetchRecentNews(newsQuery);
-        conversationHistory.push({ role: 'assistant', content: newsReply, timestamp: Date.now() });
-
-        // Salvar o histórico atualizado no Firebase
-        await userRef.set({ messages: conversationHistory });
-
-        // Responder ao Twilio
-        res.set('Content-Type', 'text/plain');
-        return res.send(newsReply);
+// Verificar se a mensagem é sobre notícias recentes
+const lowerCaseMessage = message.toLowerCase().trim();
+if (lowerCaseMessage.includes("últimas notícias") || lowerCaseMessage.includes("notícias recentes")) {
+    // Extrair o tópico da mensagem (ex.: "últimas notícias sobre tecnologia" -> "tecnologia")
+    let newsQuery = "Israel"; // Padrão
+    const match = lowerCaseMessage.match(/(?:últimas notícias|notícias recentes)\s+(?:sobre\s+)?(.+)/i);
+    if (match && match[1]) {
+        newsQuery = match[1].trim();
     }
+    const newsReply = await fetchRecentNews(newsQuery);
+    conversationHistory.push({ role: 'assistant', content: newsReply, timestamp: Date.now() });
+
+    // Salvar o histórico atualizado no Firebase
+    await userRef.set({ messages: conversationHistory });
+
+    // Responder ao Twilio
+    res.set('Content-Type', 'text/plain');
+    return res.send(newsReply);
+}
 
     // Verificar a base de conhecimento
     const knowledgeAnswer = findAnswerInKnowledgeBase(message);
