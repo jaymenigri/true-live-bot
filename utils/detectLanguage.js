@@ -1,7 +1,8 @@
 let franc = require('franc-min');
 const langs = require('langs');
 
-if (typeof franc !== 'function' && typeof franc.default === 'function') {
+// Corrige caso Heroku importe franc-min como objeto
+if (typeof franc !== 'function' && franc.default && typeof franc.default === 'function') {
   franc = franc.default;
 }
 
