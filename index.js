@@ -4,6 +4,8 @@ const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 const detectLanguage = require('./utils/detectLanguage');
 const knowledgeBase = require('./knowledge-base.json');
+const francTest = require('franc-min');
+console.log(">>> TESTE FRANC:", typeof francTest);
 
 dotenv.config();
 
