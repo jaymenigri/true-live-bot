@@ -32,17 +32,38 @@ function findAnswerInKnowledgeBase(message) {
 // Função para buscar notícias recentes usando a NewsAPI
 async function fetchRecentNews(query) {
     try {
-        const response = await axios.get('https://newsapi.org/v2/everything', {
+        console.log(`Buscando notícias para a query: ${query}`); // Log para depuração
+        let response = await axios.get('https://newsapi.org/v2/everything', {
             params: {
                 q: query, // Ex.: "Israel"
-                apiKey: process.env.NEWSAPI_KEY, // Chave API do Heroku
-                language: 'en', // Ajuste conforme necessário (ex.: 'pt' para português)
+                apiKey: process.env.NEWSAPI_KEY,
                 sortBy: 'publishedAt', // Ordenar por data de publicação
                 pageSize: 1, // Pegar apenas a notícia mais recente
+                from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Últimos 7 dias
             },
         });
-        const article = response.data.articles[0];
-        if (article) {
+
+        let articles = response.data.articles;
+        console.log(`Resultados encontrados para "${query}": ${articles.length}`); // Log para depuração
+
+        // Se não houver resultados, tentar uma query alternativa
+        if (!articles || articles.length === 0) {
+            console.log('Nenhum resultado encontrado, tentando query alternativa: "Israeli conflict"');
+            response = await axios.get('https://newsapi.org/v2/everything', {
+                params: {
+                    q: 'Israeli conflict', // Query alternativa
+                    apiKey: process.env.NEWSAPI_KEY,
+                    sortBy: 'publishedAt',
+                    pageSize: 1,
+                    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+            });
+            articles = response.data.articles;
+            console.log(`Resultados encontrados para "Israeli conflict": ${articles.length}`);
+        }
+
+        if (articles && articles.length > 0) {
+            const article = articles[0];
             return `Notícia recente: ${article.title}. Publicado em ${article.publishedAt}. [Fonte: ${article.source.name}]`;
         }
         return "Não encontrei notícias recentes sobre esse tópico.";
