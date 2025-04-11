@@ -2,38 +2,29 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
+const bodyParser = require('body-parser');
 const detectLanguage = require('./utils/detectLanguage');
 const knowledgeBase = require('./knowledge-base.json');
-const francTest = require('franc-min');
-console.log(">>> TESTE FRANC:", typeof francTest);
 
 dotenv.config();
 
-// Inicializar Firebase
+// Firebase
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-// Função para buscar respostas na base de conhecimento
+// Base de conhecimento local
 function findAnswerInKnowledgeBase(message) {
-  const lowerCaseMessage = message.toLowerCase().trim();
-  const fact = knowledgeBase.facts.find(f => lowerCaseMessage.includes(f.question.toLowerCase()));
-  if (fact) {
-    return {
-      answer: fact.answer,
-      source: fact.source
-    };
-  }
-  return null;
+  const lower = message.toLowerCase().trim();
+  const fact = knowledgeBase.facts.find(f => lower.includes(f.question.toLowerCase()));
+  return fact ? { answer: fact.answer, source: fact.source } : null;
 }
 
-// Buscar notícias recentes via NewsAPI
+// Consulta à NewsAPI
 async function fetchRecentNews(query) {
   try {
     const response = await axios.get('https://newsapi.org/v2/everything', {
@@ -43,91 +34,78 @@ async function fetchRecentNews(query) {
         sortBy: 'publishedAt',
         pageSize: 1,
         from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      },
+      }
     });
 
     const articles = response.data.articles;
     if (articles.length > 0) {
-      const article = articles[0];
-      return `🗞️ Notícia recente: *${article.title}* (${article.source.name}, ${new Date(article.publishedAt).toLocaleDateString()})`;
+      const a = articles[0];
+      return `🗞️ Notícia recente: *${a.title}* (${a.source.name}, ${new Date(a.publishedAt).toLocaleDateString()})`;
     }
 
-    return "Nenhuma notícia recente foi encontrada sobre esse tema.";
+    return "Nenhuma notícia recente foi encontrada.";
   } catch (error) {
     console.error('Erro ao buscar notícias:', error.message);
-    return "Erro ao buscar notícias recentes.";
+    return "Erro ao buscar notícias.";
   }
 }
 
-// Webhook do Twilio (WhatsApp)
+// ✅ Webhook principal
 app.post('/webhook', async (req, res) => {
+  console.log("📨 Webhook acionado! Mensagem recebida:", req.body);
+
   const from = req.body.From;
   const message = req.body.Body;
 
-  // Acessar histórico do usuário
-  const userRef = db.collection('conversations').doc(from);
-  const userDoc = await userRef.get();
-  let conversationHistory = userDoc.exists ? userDoc.data().messages : [];
-
-  // Adicionar mensagem do usuário
-  conversationHistory.push({ role: 'user', content: message, timestamp: Date.now() });
-
-  // Limpar mensagens com mais de 30 dias
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  conversationHistory = conversationHistory.filter(msg => msg.timestamp > thirtyDaysAgo);
-
-  // Mensagem inicial
-  if (conversationHistory.length === 1) {
-    const welcomeMessage = "Olá! Eu sou o *True Live*, seu mentor digital pró-Israel. Como posso ajudar você hoje?";
-    conversationHistory.push({ role: 'assistant', content: welcomeMessage, timestamp: Date.now() });
-    await userRef.set({ messages: conversationHistory });
-    res.set('Content-Type', 'text/plain');
-    return res.send(welcomeMessage);
+  if (!from || !message) {
+    return res.send("Mensagem inválida.");
   }
 
-  // Verificar pedido de notícias recentes
-  const lower = message.toLowerCase().trim();
-  if (lower.includes("últimas notícias") || lower.includes("notícias recentes")) {
-    let newsQuery = "Israel";
-    const match = lower.match(/(?:últimas notícias|notícias recentes)\s+(?:sobre\s+)?(.+)/i);
-    if (match && match[1]) {
-      newsQuery = match[1].trim();
-    }
+  const userRef = db.collection('conversations').doc(from);
+  const userDoc = await userRef.get();
+  let history = userDoc.exists ? userDoc.data().messages : [];
 
-    const newsReply = await fetchRecentNews(newsQuery);
-    conversationHistory.push({ role: 'assistant', content: newsReply, timestamp: Date.now() });
-    await userRef.set({ messages: conversationHistory });
-    res.set('Content-Type', 'text/plain');
+  history.push({ role: 'user', content: message, timestamp: Date.now() });
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  history = history.filter(m => m.timestamp > thirtyDaysAgo);
+
+  if (history.length === 1) {
+    const welcome = "Olá! Eu sou o *True Live*, seu mentor digital pró-Israel. Como posso ajudar você hoje?";
+    history.push({ role: 'assistant', content: welcome, timestamp: Date.now() });
+    await userRef.set({ messages: history });
+    return res.send(welcome);
+  }
+
+  const lower = message.toLowerCase();
+  if (lower.includes("últimas notícias")) {
+    const newsReply = await fetchRecentNews();
+    history.push({ role: 'assistant', content: newsReply, timestamp: Date.now() });
+    await userRef.set({ messages: history });
     return res.send(newsReply);
   }
 
-  // Verificar na base de conhecimento
-  const knowledgeAnswer = findAnswerInKnowledgeBase(message);
-  if (knowledgeAnswer) {
-    const reply = `${knowledgeAnswer.answer} [Fonte: ${knowledgeAnswer.source}]`;
-    conversationHistory.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-    await userRef.set({ messages: conversationHistory });
-    res.set('Content-Type', 'text/plain');
+  const kbAnswer = findAnswerInKnowledgeBase(message);
+  if (kbAnswer) {
+    const reply = `${kbAnswer.answer} [Fonte: ${kbAnswer.source}]`;
+    history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+    await userRef.set({ messages: history });
     return res.send(reply);
   }
 
-  // Detectar idioma
   const lang = detectLanguage(message);
-
-  // Instrução ao ChatGPT
-  conversationHistory.push({
+  history.push({
     role: 'system',
-    content: `Você é um assistente pró-Israel com valores judaico-cristãos. Responda com clareza, embasamento e no idioma: ${lang}.`,
+    content: `Você é um assistente pró-Israel com valores judaico-cristãos. Responda com clareza e no idioma: ${lang}.`,
     timestamp: Date.now()
   });
 
-  // Chamar o ChatGPT
   try {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-4-turbo',
-        messages: conversationHistory,
+        messages: history,
         max_tokens: 300
       },
       {
@@ -139,20 +117,16 @@ app.post('/webhook', async (req, res) => {
     );
 
     const reply = response.data.choices[0].message.content.trim();
-    conversationHistory.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-    await userRef.set({ messages: conversationHistory });
-    res.set('Content-Type', 'text/plain');
+    history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+    await userRef.set({ messages: history });
     return res.send(reply);
 
   } catch (error) {
-    console.error('Erro ao chamar ChatGPT:', error.message);
-    const errorMessage = "Desculpe, algo deu errado. Tente novamente mais tarde.";
-    res.set('Content-Type', 'text/plain');
-    return res.send(errorMessage);
+    console.error('Erro com ChatGPT:', error.message);
+    return res.send("Erro ao gerar resposta. Tente novamente.");
   }
 });
 
-// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
